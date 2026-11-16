@@ -1,0 +1,105 @@
+:- discontiguos payment_amount/2.
+:- discontiguos transaction_cardId/2.
+:- discontiguos transaction_datetime/2.
+:- discontiguos cardholder/2.
+:- discontiguos transaction_merchant/2.
+:- discontiguos cardholder_country/2.
+:- discontiguos merchant_country/2.
+:- discontiguos store_type/2. 
+
+payment_amount(transaction1, 11234).
+payment_amount(transaction2, 12).
+payment_amount(transaction3, 90).
+payment_amount(transaction4, 500).
+
+transaction_datetime(transaction1, 1778874240).
+transaction_datetime(transaction2, 1778877900).
+transaction_datetime(transaction3, 1778870700).  
+transaction_datetime(transaction4, 1778874420).
+
+transaction_cardId(transaction1, 1234).
+transaction_cardId(transaction2, 1235).
+transaction_cardId(transaction3, 1236).
+transaction_cardId(transaction4, 1234).
+
+cardholder(1234, mr_mensoni).
+cardholder(1235, mr_meyer).
+cardholder(1236, mr_suter).
+
+cardholder_country(mr_mensoni, italy).
+cardholder_country(mr_meyer, germany).
+cardholder_country(mr_suter, swiss).
+
+transaction_merchant(transaction1, world_of_africa).
+transaction_merchant(transaction2, winds_of_the_desert).
+transaction_merchant(transaction3, mama_africa).
+transaction_merchant(transaction4, winds_of_the_desert).
+
+merchant_country(world_of_africa, south_africa).
+merchant_country(winds_of_the_desert, morocco).
+merchant_country(mama_africa, south_africa).
+
+store_type(world_of_africa, physical).
+store_type(winds_of_the_desert, physical).
+store_type(mama_africa, physical).
+
+continent(italy, europe).
+continent(swiss, europe).
+continent(south_africa, africa).
+continent(morocco, africa).
+continent(germany, europe).
+
+payment_risk(Payment_amount, 10) :- Payment_amount < 1000.
+payment_risk(Payment_amount, 60) :- Payment_amount >= 1000, Payment_amount =< 10000.
+payment_risk(Payment_amount, 90) :- Payment_amount > 10000.
+
+cardholder_risk(italy, 0).
+cardholder_risk(Country, 10) :- continent(Country, C), C = europe.
+cardholder_risk(Country, 20) :- continent(Country, C), C = africa.
+
+merchant_risk(italy, 10).
+merchant_risk(Country, 20) :- continent(Country, C), C = europe.
+merchant_risk(Country, 60) :- continent(Country, C), C = africa.
+
+additional_risk(swiss, south_africa, 30).
+additional_risk(_, _, 0).
+
+calculate_risk(Payment_amount, CardholderCountry, MerchantCountry, Total_risk) :-
+    payment_risk(Payment_amount, PR), cardholder_risk(CardholderCountry, CR), 
+    merchant_risk(MerchantCountry, MR), additional_risk(CardholderCountry, MerchantCountry, AR),
+    Total_risk is PR + CR + MR + AR, !.
+
+check_time(Transaction, CardID, Datetime, M_Country, physical, TR, 150) 
+		:- transaction_cardId(T, CardID), transaction_datetime(T, DT),
+    		transaction_merchant(T, M), merchant_country(M, M_CO),  store_type(M, physical),
+    		Transaction \== T, M_Country \== M_CO, 
+    		Diff is Datetime - DT, Diff >= 10, Diff =< 300, TR < 150, !. 
+check_time(_, _, _, _, _, TR, TR).	
+
+
+check_risk(Risk, "no_risk") :- Risk =< 100, !.
+check_risk(Risk, "transaction stopped") :- Risk > 100, Risk =< 150, !.
+check_risk(Risk, "transaction declined") :- Risk > 150.	
+
+
+check_transaction(Transaction, Result) :- payment_amount(Transaction, P), transaction_cardId(Transaction, Card_ID), 
+					  transaction_datetime(Transaction, Datetime),  cardholder(Card_ID, C), 
+					  cardholder_country(C, C_CO), transaction_merchant(Transaction, M),
+    				 merchant_country(M, M_CO), store_type(M, S_T), calculate_risk(P, C_CO, M_CO, TR), 
+      					check_time(Transaction, Card_ID, Datetime,M_CO, S_T, TR, Adjusted_Risk), 
+					  check_risk(Adjusted_Risk, Result). 
+
+
+payment_amount(transaction5, 102).
+transaction_cardId(transaction5, 1238).
+transaction_datetime(transaction5, 1778874660).
+cardholder(1238, mr_miller).
+cardholder_country(mr_miller, germany).
+transaction_merchant(transaction5, south_african_master_pieces).
+merchant_country(south_african_master_pieces, south_africa).
+store_type(south_african_master_pieces, online).
+
+a_transaction(Transaction) :- transaction_merchant(Transaction,M), store_type(M, online).
+
+check_transaction_type(Transaction, "A-transaction") :- a_transaction(Transaction), !.
+check_transaction_type(Transaction, "B-transaction") :- \+a_transaction(Transaction).
